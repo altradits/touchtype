@@ -268,6 +268,56 @@
             flex-wrap: wrap;
         }
 
+        .download-panel {
+            margin-top: 18px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.24);
+            text-align: center;
+        }
+
+        .download-panel h2 {
+            font-size: 1em;
+            margin-bottom: 6px;
+        }
+
+        .download-panel p {
+            color: #a8a8b3;
+            font-size: 0.8em;
+            margin-bottom: 12px;
+        }
+
+        .download-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .download-link {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid rgba(72, 219, 251, 0.6);
+            border-radius: 8px;
+            color: #48dbfb;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .download-link.recommended {
+            background: rgba(72, 219, 251, 0.15);
+            border-color: #48dbfb;
+        }
+
+        .download-link[aria-disabled="true"] {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #777;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .btn {
             padding: 10px 25px;
             border: none;
@@ -616,8 +666,21 @@
             <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
         </div>
 
+        <section class="download-panel" aria-labelledby="downloadTitle">
+            <h2 id="downloadTitle">Install Touch Typing Master</h2>
+            <p id="downloadStatus">Choose a download for your laptop.</p>
+            <div class="download-links" id="downloadLinks">
+                <a class="download-link" data-download="windows-amd64" aria-disabled="true">Windows</a>
+                <a class="download-link" data-download="windows-arm64" aria-disabled="true">Windows ARM</a>
+                <a class="download-link" data-download="macos-arm64" aria-disabled="true">macOS Apple Silicon</a>
+                <a class="download-link" data-download="macos-amd64" aria-disabled="true">macOS Intel</a>
+                <a class="download-link" data-download="linux-amd64" aria-disabled="true">Linux</a>
+                <a class="download-link" data-download="linux-arm64" aria-disabled="true">Linux ARM</a>
+            </div>
+        </section>
+
         <div class="message info" id="message" role="status" aria-live="polite">💡 Type the falling letters before they reach the bottom!</div>
-        <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</
+        <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</div>
 <div style="text-align: center; margin-top: 20px; color: #a8a8b3; font-size: 0.8em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
     <p>© 2024 Stanley Chege Thuita •
        <a href="mailto:altradits@gmail.com" style="color: #48dbfb; text-decoration: none;">altradits@gmail.com</a> •
@@ -1088,6 +1151,7 @@
         const fallingContainer = document.getElementById('fallingContainer');
         const comboPopup = document.getElementById('comboDisplay');
         const musicBtn = document.getElementById('musicBtn');
+        const downloadStatus = document.getElementById('downloadStatus');
 
         // Key mapping for visual feedback
         const keyMap = {};
@@ -1116,6 +1180,37 @@
                 }
             } catch (error) {
                 console.error('Error fetching state:', error);
+            }
+        }
+
+        async function loadDownloads() {
+            try {
+                const response = await fetch('/api/downloads');
+                const data = await response.json();
+                if (!data.configured) {
+                    downloadStatus.textContent = 'Downloads are not configured on this server yet.';
+                    return;
+                }
+
+                const platform = (navigator.userAgentData?.platform || navigator.platform || '').toLowerCase();
+                // Browsers do not reliably reveal whether a Mac is Intel or Apple Silicon,
+                // so only auto-suggest platforms where the choice is unambiguous.
+                const recommended = platform.includes('win') ? 'windows-amd64' :
+                    (platform.includes('linux') ? 'linux-amd64' : null);
+                document.querySelectorAll('[data-download]').forEach(link => {
+                    const download = data.downloads[link.dataset.download];
+                    if (!download || !download.url) return;
+                    link.href = download.url;
+                    link.setAttribute('download', '');
+                    link.setAttribute('aria-disabled', 'false');
+                    link.title = `Download ${download.label}`;
+                    if (link.dataset.download === recommended) {
+                        link.classList.add('recommended');
+                    }
+                });
+                downloadStatus.textContent = 'Your suggested download is highlighted when available. On macOS, choose Apple Silicon or Intel for your laptop.';
+            } catch (error) {
+                downloadStatus.textContent = 'Downloads are temporarily unavailable.';
             }
         }
 
@@ -1386,6 +1481,7 @@
 
         // Initial state fetch
         fetchState();
+        loadDownloads();
         setInterval(fetchState, 2000);
 
         // Initialize sounds and hide loading screen

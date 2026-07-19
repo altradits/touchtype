@@ -211,6 +211,25 @@ docker run --rm --name touchtype -p 8080:8080 touchtype-master:latest
 
 Open [http://localhost:8080](http://localhost:8080). Stop the container with `Ctrl+C` in its terminal. The image includes a health check at [http://localhost:8080/healthz](http://localhost:8080/healthz).
 
+## Publish OS-specific download buttons
+
+The website includes download buttons for Windows (Intel/AMD and ARM), macOS (Intel and Apple Silicon), and Linux (Intel/AMD and ARM). Build their exact assets with:
+
+```bash
+make downloads
+```
+
+Upload every file from `dist/downloads/` to a public HTTPS folder, CDN, or release-assets location. Configure the deployed app with the URL of that folder, without a trailing file name:
+
+```bash
+# Docker example
+docker run --rm -p 8080:8080 \
+  -e DOWNLOAD_BASE_URL=https://downloads.example.com/touchtype \
+  touchtype-master:latest
+```
+
+For a non-Docker deployment, set `DOWNLOAD_BASE_URL` in the service environment before starting the app. The browser automatically highlights the likely download for the visitor’s operating system; visitors can choose another architecture when needed. If this variable is absent or invalid, buttons stay safely disabled instead of linking to a broken file.
+
 For Docker Desktop on Windows, allow its WSL 2 integration if prompted. On a ChromeOS laptop, Docker is optional and may require Linux virtualisation support; the Go method above is usually simpler.
 
 ## 4. Build or use a binary
@@ -294,3 +313,4 @@ make dev
 ## License
 
 Distributed under the [MIT License](LICENSE).
+

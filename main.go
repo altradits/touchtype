@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -65,6 +66,23 @@ type Response struct {
 	Message string         `json:"message,omitempty"`
 	State   *GameState     `json:"state,omitempty"`
 	Letter  *FallingLetter `json:"letter,omitempty"`
+}
+
+type Download struct {
+	Label string `json:"label"`
+	URL   string `json:"url,omitempty"`
+}
+
+var downloadFiles = map[string]struct {
+	Label string
+	File  string
+}{
+	"windows-amd64": {Label: "Windows (Intel / AMD)", File: "touchtype-master-windows-amd64.exe"},
+	"windows-arm64": {Label: "Windows (ARM)", File: "touchtype-master-windows-arm64.exe"},
+	"macos-arm64":   {Label: "macOS (Apple Silicon)", File: "touchtype-master-macos-arm64"},
+	"macos-amd64":   {Label: "macOS (Intel)", File: "touchtype-master-macos-amd64"},
+	"linux-amd64":   {Label: "Linux (Intel / AMD)", File: "touchtype-master-linux-amd64"},
+	"linux-arm64":   {Label: "Linux (ARM)", File: "touchtype-master-linux-arm64"},
 }
 
 var gameState *GameState
@@ -156,6 +174,7 @@ func main() {
 	http.HandleFunc("/api/state", getState)
 	http.HandleFunc("/api/reset", resetGame)
 	http.HandleFunc("/api/falling", getFallingLetters)
+	http.HandleFunc("/api/downloads", getDownloads)
 	http.HandleFunc("/healthz", healthCheck)
 
 	// Start background goroutine for falling letters
@@ -384,6 +403,40 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, map[string]string{"status": "ok"})
+}
+
+func getDownloads(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+
+	baseURL, configured := downloadBaseURL()
+	downloads := make(map[string]Download, len(downloadFiles))
+	for id, file := range downloadFiles {
+		download := Download{Label: file.Label}
+		if configured {
+			download.URL = baseURL + "/" + file.File
+		}
+		downloads[id] = download
+	}
+	respondJSON(w, map[string]interface{}{
+		"configured": configured,
+		"downloads":  downloads,
+	})
+}
+
+func downloadBaseURL() (string, bool) {
+	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("DOWNLOAD_BASE_URL")), "/")
+	if baseURL == "" {
+		return "", false
+	}
+	parsed, err := url.ParseRequestURI(baseURL)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		log.Printf("DOWNLOAD_BASE_URL is invalid; download buttons are disabled")
+		return "", false
+	}
+	return baseURL, true
 }
 
 // syncFallingLetter shows one useful prompt: the exact key required next.

@@ -86,6 +86,25 @@ func TestHealthCheck(t *testing.T) {
 	}
 }
 
+func TestDownloadManifestUsesConfiguredBaseURL(t *testing.T) {
+	t.Setenv("DOWNLOAD_BASE_URL", "https://downloads.example.com/touchtype/")
+	recorder := httptest.NewRecorder()
+	getDownloads(recorder, httptest.NewRequest(http.MethodGet, "/api/downloads", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("download manifest status = %d", recorder.Code)
+	}
+	var manifest struct {
+		Configured bool                `json:"configured"`
+		Downloads  map[string]Download `json:"downloads"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&manifest); err != nil {
+		t.Fatal(err)
+	}
+	if !manifest.Configured || manifest.Downloads["windows-amd64"].URL != "https://downloads.example.com/touchtype/touchtype-master-windows-amd64.exe" {
+		t.Fatalf("unexpected download manifest: %+v", manifest)
+	}
+}
+
 func TestMissRespawnsTheSamePromptAndAppliesPenalty(t *testing.T) {
 	postJSON(t, "/api/start", "")
 	gameState.mu.Lock()

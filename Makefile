@@ -20,6 +20,7 @@ AUTHOR_PHONE := "+254707172370"
 # Build variables
 BUILD_DIR := ./build
 DIST_DIR := ./dist
+DOWNLOAD_DIR := $(DIST_DIR)/downloads
 GO_VERSION := $(shell go version | cut -d' ' -f3 | sed 's/go//')
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -86,7 +87,9 @@ build-all: ## Build for all supported platforms
 	@echo "$(COLOR_MAGENTA)Author: $(AUTHOR_NAME)$(COLOR_RESET)"
 	@mkdir -p $(DIST_DIR)
 	@$(MAKE) build-windows
+	@$(MAKE) build-windows-arm64
 	@$(MAKE) build-linux
+	@$(MAKE) build-linux-arm64
 	@$(MAKE) build-darwin
 	@$(MAKE) build-darwin-arm64
 	@echo "$(COLOR_GREEN)✓ All builds complete!$(COLOR_RESET)"
@@ -105,6 +108,31 @@ build-linux: ## Build for Linux (amd64)
 	@mkdir -p $(DIST_DIR)/linux
 	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/linux/$(BINARY_NAME) .
 	@echo "$(COLOR_GREEN)✓ Linux build complete: $(DIST_DIR)/linux/$(BINARY_NAME)$(COLOR_RESET)"
+
+.PHONY: build-linux-arm64
+build-linux-arm64: ## Build for Linux (arm64)
+	@echo "$(COLOR_YELLOW)Building for Linux ARM64...$(COLOR_RESET)"
+	@mkdir -p $(DIST_DIR)/linux-arm64
+	GOOS=linux GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/linux-arm64/$(BINARY_NAME) .
+	@echo "$(COLOR_GREEN)✓ Linux ARM64 build complete: $(DIST_DIR)/linux-arm64/$(BINARY_NAME)$(COLOR_RESET)"
+
+.PHONY: build-windows-arm64
+build-windows-arm64: ## Build for Windows (arm64)
+	@echo "$(COLOR_YELLOW)Building for Windows ARM64...$(COLOR_RESET)"
+	@mkdir -p $(DIST_DIR)/windows-arm64
+	GOOS=windows GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/windows-arm64/$(BINARY_NAME).exe .
+	@echo "$(COLOR_GREEN)✓ Windows ARM64 build complete: $(DIST_DIR)/windows-arm64/$(BINARY_NAME).exe$(COLOR_RESET)"
+
+.PHONY: downloads
+downloads: build-all ## Create direct-download executable assets for deployment
+	@mkdir -p $(DOWNLOAD_DIR)
+	@cp $(DIST_DIR)/windows/$(BINARY_NAME).exe $(DOWNLOAD_DIR)/$(BINARY_NAME)-windows-amd64.exe
+	@cp $(DIST_DIR)/windows-arm64/$(BINARY_NAME).exe $(DOWNLOAD_DIR)/$(BINARY_NAME)-windows-arm64.exe
+	@cp $(DIST_DIR)/linux/$(BINARY_NAME) $(DOWNLOAD_DIR)/$(BINARY_NAME)-linux-amd64
+	@cp $(DIST_DIR)/linux-arm64/$(BINARY_NAME) $(DOWNLOAD_DIR)/$(BINARY_NAME)-linux-arm64
+	@cp $(DIST_DIR)/darwin/$(BINARY_NAME)-mac $(DOWNLOAD_DIR)/$(BINARY_NAME)-macos-amd64
+	@cp $(DIST_DIR)/darwin-arm64/$(BINARY_NAME)-mac-arm64 $(DOWNLOAD_DIR)/$(BINARY_NAME)-macos-arm64
+	@echo "$(COLOR_GREEN)✓ Upload the files in $(DOWNLOAD_DIR) to your DOWNLOAD_BASE_URL location.$(COLOR_RESET)"
 
 .PHONY: build-darwin
 build-darwin: ## Build for macOS (amd64)
