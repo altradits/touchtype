@@ -1,5 +1,14 @@
 <!-- static/index.html -->
 <!DOCTYPE html>
+<!--
+    Touch Typing Master - Learn All Keyboard Keys
+    Author: Stanley Chege Thuita
+    Email: altradits@gmail.com
+    LinkedIn: https://www.linkedin.com/in/stanmobitech/
+    Phone: +254707172370
+    Version: 1.0.0
+    Description: A full-stack touch typing game for Go programmers
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -523,7 +532,7 @@
             </div>
             <div class="stat-item">
                 <div class="label">Progress</div>
-                <div class="value" id="progress">0/33</div>
+                <div class="value" id="progress">0/30</div>
             </div>
         </div>
 
@@ -607,12 +616,19 @@
             <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
         </div>
 
-        <div class="message info" id="message">💡 Type the falling letters before they reach the bottom!</div>
-        <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</div>
-    </div>
+        <div class="message info" id="message" role="status" aria-live="polite">💡 Type the falling letters before they reach the bottom!</div>
+        <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</
+<div style="text-align: center; margin-top: 20px; color: #a8a8b3; font-size: 0.8em; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+    <p>© 2024 Stanley Chege Thuita •
+       <a href="mailto:altradits@gmail.com" style="color: #48dbfb; text-decoration: none;">altradits@gmail.com</a> •
+       <a href="https://www.linkedin.com/in/stanmobitech/" target="_blank" style="color: #48dbfb; text-decoration: none;">LinkedIn</a> •
+       📱 +254707172370
+    </p>
+    <p style="font-size: 0.8em; margin-top: 5px;">Touch Typing Master v1.0.0 • Built for Go Programmers</p>
+</div>
 
     <div class="music-control">
-        <button class="music-btn playing" id="musicBtn" title="Toggle Background Music">🎵</button>
+        <button class="music-btn" id="musicBtn" title="Toggle background music" aria-label="Toggle background music">🔇</button>
     </div>
 
     <script>
@@ -661,7 +677,7 @@
                         const freq1 = 523 + t * 300;
                         const freq2 = 659 + t * 300;
                         const freq3 = 784 + t * 300;
-                        
+
                         const envelope = Math.sin(t * Math.PI / duration) * Math.exp(-t * 2);
                         const val = (Math.sin(2 * Math.PI * freq1 * t) * 0.3 +
                                     Math.sin(2 * Math.PI * freq2 * t) * 0.3 +
@@ -836,9 +852,12 @@
                     
                     this.initialized = true;
                     
-                    // Initialize background music
+                    // Music starts only after the learner opts in. This avoids autoplay
+                    // restrictions and keeps a practice session distraction-free by default.
                     this.music = new BackgroundMusic(this.ctx);
-                    this.music.play();
+                }
+                if (this.ctx.state === 'suspended') {
+                    await this.ctx.resume().catch(() => {});
                 }
                 return this.ctx;
             }
@@ -918,7 +937,7 @@
             constructor(ctx) {
                 this.ctx = ctx;
                 this.isPlaying = false;
-                this.isActive = true;
+                this.isActive = false;
                 this.notes = [];
                 this.interval = null;
                 this.volume = 0.12;
@@ -1052,6 +1071,8 @@
         let gameActive = false;
         let gameState = null;
         let animationFrame = null;
+        let fallingRequestInFlight = false;
+        let lastFallingUpdate = 0;
 
         const lessonDisplay = document.getElementById('lessonDisplay');
         const wpmDisplay = document.getElementById('wpm');
@@ -1155,8 +1176,9 @@
                 if (data.success) {
                     gameState = data.state;
                     updateDisplay();
+                    const wasCorrect = data.correct === true;
                     
-                    const keyElement = keyMap[key];
+                    const keyElement = keyMap[key.toLowerCase()];
                     if (keyElement) {
                         keyElement.classList.add('pressed');
                         setTimeout(() => keyElement.classList.remove('pressed'), 150);
@@ -1173,26 +1195,30 @@
                         gameActive = false;
                         startBtn.disabled = false;
                         startBtn.textContent = '🚀 Start';
-                    } else {
-                        if (data.state && data.state.position > 0) {
-                            const expected = gameState.currentText[gameState.position - 1];
-                            if (key === expected) {
-                                sound.playCorrect();
-                                if (keyElement) {
-                                    keyElement.classList.add('correct-key');
-                                    setTimeout(() => keyElement.classList.remove('correct-key'), 300);
-                                }
-                                
-                                if (gameState.combo > 2) {
-                                    showComboPopup(gameState.combo);
-                                    sound.playCombo(gameState.combo);
-                                }
-                            }
+                    } else if (wasCorrect) {
+                        sound.playCorrect();
+                        if (keyElement) {
+                            keyElement.classList.add('correct-key');
+                            setTimeout(() => keyElement.classList.remove('correct-key'), 300);
                         }
+
+                        if (gameState.combo > 2) {
+                            showComboPopup(gameState.combo);
+                            sound.playCombo(gameState.combo);
+                        }
+                    } else {
+                        sound.playMistake();
+                        if (keyElement) {
+                            keyElement.classList.add('error-key');
+                            setTimeout(() => keyElement.classList.remove('error-key'), 300);
+                        }
+                        messageDiv.className = 'message error';
+                        const expected = gameState.currentText[gameState.position];
+                        messageDiv.textContent = '❌ Wrong! Expected: "' + expected + '"';
                     }
                 } else {
                     sound.playMistake();
-                    const keyElement = keyMap[key];
+                    const keyElement = keyMap[key.toLowerCase()];
                     if (keyElement) {
                         keyElement.classList.add('error-key');
                         setTimeout(() => keyElement.classList.remove('error-key'), 300);
@@ -1224,7 +1250,7 @@
             scoreDisplay.textContent = gameState.score || 0;
             comboDisplay.textContent = gameState.combo || 0;
             
-            const totalLines = gameState.lessonLines ? gameState.lessonLines.length : 33;
+            const totalLines = gameState.lessonLines ? gameState.lessonLines.length : 30;
             const currentLine = gameState.currentLine + 1;
             progressDisplay.textContent = `${Math.min(currentLine, totalLines)}/${totalLines}`;
             progressFill.style.width = `${(gameState.currentLine / totalLines) * 100}%`;
@@ -1265,6 +1291,7 @@
         }
 
         function getCharClass(char) {
+            char = char.toLowerCase();
             const homeRow = new Set(['a', 's', 'd', 'f', 'j', 'k', 'l', ';']);
             const topRow = new Set(['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p']);
             const bottomRow = new Set(['z', 'x', 'c', 'v', 'b', 'n', 'm']);
@@ -1278,6 +1305,8 @@
         }
 
         async function fetchFallingLetters() {
+            if (fallingRequestInFlight) return;
+            fallingRequestInFlight = true;
             try {
                 const response = await fetch('/api/falling');
                 const data = await response.json();
@@ -1286,6 +1315,8 @@
                 }
             } catch (error) {
                 console.error('Error fetching falling letters:', error);
+            } finally {
+                fallingRequestInFlight = false;
             }
         }
 
@@ -1293,12 +1324,12 @@
             fallingContainer.innerHTML = '';
             
             letters.forEach(letter => {
-                if (!letter.Active) return;
+                if (!letter.active) return;
                 const el = document.createElement('div');
-                el.className = 'falling-letter ' + getCharClass(letter.Char);
-                el.textContent = letter.Char;
-                el.style.left = letter.X + 'px';
-                el.style.top = letter.Y + 'px';
+                el.className = 'falling-letter ' + getCharClass(letter.char);
+                el.textContent = letter.display;
+                el.style.left = letter.x + '%';
+                el.style.top = letter.y + 'px';
                 fallingContainer.appendChild(el);
             });
         }
@@ -1310,7 +1341,13 @@
             
             async function update() {
                 if (gameActive) {
-                    await fetchFallingLetters();
+                    const now = performance.now();
+                    // The server advances letters on a timer, so polling at 12 FPS keeps
+                    // the animation responsive without issuing one request per frame.
+                    if (now - lastFallingUpdate >= 80) {
+                        lastFallingUpdate = now;
+                        fetchFallingLetters();
+                    }
                     animationFrame = requestAnimationFrame(update);
                 }
             }
@@ -1325,16 +1362,13 @@
                 return;
             }
             
+            if (!gameActive) return;
+
             event.preventDefault();
-            
-            let key = event.key;
-            if (key === ';') key = ';';
-            else if (key === ' ') key = ' ';
-            else if (key.length === 1) {
-                key = key.toLowerCase();
-            }
-            
-            sendKeyPress(key);
+
+            // Preserve case: Go-code lessons intentionally include characters such as
+            // the capital H and W in "Hello, World!".
+            sendKeyPress(event.key);
         });
 
         // Click handlers for on-screen keyboard
@@ -1361,7 +1395,7 @@
             console.log('🎯 Master ALL keyboard keys for Go programming!');
             console.log('🏠 Home Row: A S D F J K L ;');
             console.log('🔥 Build combos for bonus points!');
-            console.log('🎵 Background music playing - click the music button to toggle');
+            console.log('🎵 Background music is optional — use the music button to toggle it');
             console.log('📦 All sounds generated and cached for offline use!');
         })();
     </script>

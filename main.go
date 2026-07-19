@@ -4,15 +4,28 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 //go:embed static/*
 var staticFiles embed.FS
+
+// Version and author information - set during build
+var (
+	version        = "1.0.0"
+	buildTime      = "unknown"
+	gitCommit      = "unknown"
+	authorName     = "Stanley Chege Thuita"
+	authorEmail    = "altradits@gmail.com"
+	authorLinkedIn = "https://www.linkedin.com/in/stanmobitech/"
+	authorPhone    = "+254707172370"
+)
 
 type GameState struct {
 	mu             sync.Mutex
@@ -35,15 +48,11 @@ type GameState struct {
 }
 
 type FallingLetter struct {
-	Char      string
-	X         int
-	Y         int
-	Speed     float64
-	Active    bool
-	TargetX   int
-	TargetY   int
-	StartTime time.Time
-	Lane      int
+	Char    string `json:"char"`
+	Display string `json:"display"`
+	X       int    `json:"x"`
+	Y       int    `json:"y"`
+	Active  bool   `json:"active"`
 }
 
 type KeyPress struct {
@@ -51,68 +60,67 @@ type KeyPress struct {
 }
 
 type Response struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	State   *GameState  `json:"state,omitempty"`
+	Success bool           `json:"success"`
+	Correct bool           `json:"correct,omitempty"`
+	Message string         `json:"message,omitempty"`
+	State   *GameState     `json:"state,omitempty"`
 	Letter  *FallingLetter `json:"letter,omitempty"`
 }
 
 var gameState *GameState
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
-	
 	// Progressive lessons covering all keyboard letters
 	lessonLines := []string{
 		// Home Row Basics
 		"asdf fdsa asdf fdsa asdf fdsa asdf fdsa asdf fdsa asdf fdsa",
 		"jkl; ;lkj jkl; ;lkj jkl; ;lkj jkl; ;lkj jkl; ;lkj jkl; ;lkj",
-		
+
 		// Home Row Combinations
 		"asdf jkl; asdf jkl; asdf jkl; asdf jkl; asdf jkl; asdf jkl;",
 		";lkj fdsa ;lkj fdsa ;lkj fdsa ;lkj fdsa ;lkj fdsa ;lkj fdsa",
-		
+
 		// Top Row (QWERTY)
 		"qwerty ytrewq qwerty ytrewq qwerty ytrewq qwerty ytrewq",
 		"poiuyt yuiop poiuyt yuiop poiuyt yuiop poiuyt yuiop",
 		"qwertyuiop poiuytrewq qwertyuiop poiuytrewq qwertyuiop",
-		
+
 		// Bottom Row (ZXCVBNM)
 		"zxcvbnm mnbvcxz zxcvbnm mnbvcxz zxcvbnm mnbvcxz zxcvbnm",
 		"asdfghjkl zxcvbnm asdfghjkl zxcvbnm asdfghjkl zxcvbnm",
-		
+
 		// All Letters Mixed
 		"the quick brown fox jumps over the lazy dog",
 		"pack my box with five dozen liquor jugs",
 		"how vexingly quick daft zebras jump",
 		"the five boxing wizards jump quickly",
-		
+
 		// Go Programming Keywords
 		"package main import fmt func var const type",
 		"if else for range switch defer go select",
 		"chan map interface struct error nil true false",
 		"make new append copy delete close recover",
 		"go func main println printf print panic",
-		
+
 		// Go Code Snippets
 		"fmt.Println hello world",
 		"var x int = 42",
 		"if err != nil { return err }",
 		"for i := 0; i < 10; i++ {",
 		"switch value { case 1: default: }",
-		
+
 		// Complex Combinations
 		"func main() { fmt.Println(\"Hello, World!\") }",
 		"type User struct { Name string Age int }",
 		"go run main.go go build go test go mod tidy",
 		"make(chan int, 10) <-chan int chan<- int",
-		
+
 		// Final Challenge - Full Keyboard
 		"the quick brown fox jumps over the lazy dog 1234567890",
 		"!@#$%^&*()_+-=[]{}|;:',.<>?/~`",
 		"abcdefghijklmnopqrstuvwxyz 0123456789",
 	}
-	
+
 	gameState = &GameState{
 		LessonLines:    lessonLines,
 		CurrentLine:    0,
@@ -122,30 +130,47 @@ func init() {
 		Combo:          0,
 		MaxCombo:       0,
 	}
-	
+
 	if len(lessonLines) > 0 {
 		gameState.CurrentText = lessonLines[0]
 	}
 }
 
 func main() {
+	// Print author and version information
+	fmt.Printf("🎮 Touch Typing Master - v%s\n", version)
+	fmt.Printf("👤 Author: %s\n", authorName)
+	fmt.Printf("📧 Email: %s\n", authorEmail)
+	fmt.Printf("🔗 LinkedIn: %s\n", authorLinkedIn)
+	fmt.Printf("📱 Phone: %s\n", authorPhone)
+	fmt.Printf("🕐 Build Time: %s\n", buildTime)
+	fmt.Printf("🔀 Git Commit: %s\n", gitCommit)
+	fmt.Println(strings.Repeat("=", 60))
+
 	// Serve static files
 	http.HandleFunc("/", serveFrontend)
-	
+
 	// API endpoints
 	http.HandleFunc("/api/start", startGame)
 	http.HandleFunc("/api/keypress", handleKeyPress)
 	http.HandleFunc("/api/state", getState)
 	http.HandleFunc("/api/reset", resetGame)
 	http.HandleFunc("/api/falling", getFallingLetters)
-	
+	http.HandleFunc("/healthz", healthCheck)
+
 	// Start background goroutine for falling letters
 	go updateFallingLetters()
-	
-	log.Println("🎮 Touch Typing Master - Server starting on http://localhost:8080")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	address := ":" + port
+	log.Printf("🎮 Touch Typing Master - Server starting on http://localhost%s", address)
 	log.Println("⌨️  Practice all keyboard letters for Go programming!")
 	log.Println("📦  All assets are self-contained - works offline!")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Printf("👤  Developed by %s\n", authorName)
+	log.Fatal(http.ListenAndServe(address, nil))
 }
 
 func serveFrontend(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +180,8 @@ func serveFrontend(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Could not load frontend", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
 		w.Write(content)
 		return
 	}
@@ -163,9 +189,13 @@ func serveFrontend(w http.ResponseWriter, r *http.Request) {
 }
 
 func startGame(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
-	
+
 	gameState.CurrentLine = 0
 	gameState.CurrentText = gameState.LessonLines[0]
 	gameState.Position = 0
@@ -181,9 +211,9 @@ func startGame(w http.ResponseWriter, r *http.Request) {
 	gameState.Combo = 0
 	gameState.MaxCombo = 0
 	gameState.FallingLetters = []FallingLetter{}
-	
-	generateFallingLetters()
-	
+
+	syncFallingLetter()
+
 	respondJSON(w, Response{
 		Success: true,
 		Message: "Game started! Type the falling letters!",
@@ -192,9 +222,13 @@ func startGame(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetGame(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
-	
+
 	gameState.CurrentLine = 0
 	gameState.CurrentText = gameState.LessonLines[0]
 	gameState.Position = 0
@@ -209,7 +243,7 @@ func resetGame(w http.ResponseWriter, r *http.Request) {
 	gameState.Combo = 0
 	gameState.MaxCombo = 0
 	gameState.FallingLetters = []FallingLetter{}
-	
+
 	respondJSON(w, Response{
 		Success: true,
 		Message: "Game reset",
@@ -219,48 +253,48 @@ func resetGame(w http.ResponseWriter, r *http.Request) {
 
 func handleKeyPress(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		methodNotAllowed(w, http.MethodPost)
 		return
 	}
-	
+
 	var keyPress KeyPress
 	if err := json.NewDecoder(r.Body).Decode(&keyPress); err != nil {
 		respondJSON(w, Response{Success: false, Message: "Invalid request"})
 		return
 	}
-	
+
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
-	
+
 	if !gameState.IsActive || gameState.Completed {
 		respondJSON(w, Response{Success: false, Message: "Game not active"})
 		return
 	}
-	
+
 	// Check if the key matches the expected character
 	if gameState.Position >= len(gameState.CurrentText) {
 		respondJSON(w, Response{Success: false, Message: "Line complete"})
 		return
 	}
-	
+
 	expected := string(gameState.CurrentText[gameState.Position])
 	key := keyPress.Key
-	
+
 	gameState.TotalChars++
-	
+
 	if key == expected {
 		gameState.CorrectChars++
 		gameState.Position++
 		gameState.Combo++
 		gameState.Score += 10 * gameState.Combo // Combo multiplier
-		
+
 		if gameState.Combo > gameState.MaxCombo {
 			gameState.MaxCombo = gameState.Combo
 		}
-		
+
 		// Remove the correct falling letter
 		removeFallingLetter(key)
-		
+
 		// Check if line is complete
 		if gameState.Position >= len(gameState.CurrentText) {
 			gameState.CurrentLine++
@@ -269,10 +303,11 @@ func handleKeyPress(w http.ResponseWriter, r *http.Request) {
 				gameState.CurrentText = gameState.LessonLines[gameState.CurrentLine]
 				gameState.Position = 0
 				gameState.FallingLetters = []FallingLetter{}
-				generateFallingLetters()
-				
+				syncFallingLetter()
+
 				respondJSON(w, Response{
 					Success: true,
+					Correct: true,
 					Message: "✨ Level Complete! Moving to next lesson!",
 					State:   gameState,
 				})
@@ -284,6 +319,7 @@ func handleKeyPress(w http.ResponseWriter, r *http.Request) {
 				calculateStats()
 				respondJSON(w, Response{
 					Success: true,
+					Correct: true,
 					Message: "🏆 MASTER TYPIST! You've conquered all lessons!",
 					State:   gameState,
 				})
@@ -294,25 +330,27 @@ func handleKeyPress(w http.ResponseWriter, r *http.Request) {
 		gameState.Mistakes++
 		gameState.Combo = 0 // Reset combo on mistake
 	}
-	
+
 	// Update stats
 	calculateStats()
-	
-	// Add new falling letter if needed
-	if len(gameState.FallingLetters) < 25 {
-		addFallingLetter()
-	}
-	
+
+	syncFallingLetter()
+
 	respondJSON(w, Response{
 		Success: true,
+		Correct: key == expected,
 		State:   gameState,
 	})
 }
 
 func getState(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
-	
+
 	respondJSON(w, Response{
 		Success: true,
 		State:   gameState,
@@ -320,137 +358,51 @@ func getState(w http.ResponseWriter, r *http.Request) {
 }
 
 func getFallingLetters(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
-	
+
 	active := []FallingLetter{}
 	for _, letter := range gameState.FallingLetters {
 		if letter.Active {
 			active = append(active, letter)
 		}
 	}
-	
+
 	respondJSON(w, map[string]interface{}{
 		"success": true,
 		"letters": active,
 	})
 }
 
-func generateFallingLetters() {
-	text := gameState.CurrentText
-	if len(text) == 0 {
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
 		return
 	}
-	
-	// Get unique characters from text
-	charMap := make(map[string]bool)
-	for _, ch := range text {
-		charStr := string(ch)
-		if charStr != " " {
-			charMap[charStr] = true
-		}
-	}
-	
-	chars := []string{}
-	for ch := range charMap {
-		chars = append(chars, ch)
-	}
-	
-	if len(chars) == 0 {
-		return
-	}
-	
-	// Create lanes for letters (20 lanes across the screen)
-	numLanes := 20
-	laneWidth := 800 / numLanes
-	
-	// Assign each unique character to a lane
-	charLanes := make(map[string]int)
-	for i, ch := range chars {
-		charLanes[ch] = i % numLanes
-	}
-	
-	// Generate 15-20 falling letters
-	numLetters := 15 + rand.Intn(6)
-	for i := 0; i < numLetters && i < len(chars)*2; i++ {
-		char := chars[rand.Intn(len(chars))]
-		lane := charLanes[char]
-		x := lane*laneWidth + laneWidth/2 - 15
-		y := -50 - rand.Intn(200) // Start above screen
-		speed := 0.8 + rand.Float64()*0.7
-		
-		gameState.FallingLetters = append(gameState.FallingLetters, FallingLetter{
-			Char:      char,
-			X:         x,
-			Y:         y,
-			Speed:     speed,
-			Active:    true,
-			TargetX:   x,
-			TargetY:   400 + rand.Intn(100),
-			Lane:      lane,
-			StartTime: time.Now(),
-		})
-	}
+	respondJSON(w, map[string]string{"status": "ok"})
 }
 
-func addFallingLetter() {
-	charMap := make(map[string]bool)
-	for _, ch := range gameState.CurrentText {
-		charStr := string(ch)
-		if charStr != " " {
-			charMap[charStr] = true
-		}
-	}
-	
-	chars := []string{}
-	for ch := range charMap {
-		chars = append(chars, ch)
-	}
-	
-	if len(chars) == 0 {
+// syncFallingLetter shows one useful prompt: the exact key required next.
+// A single target keeps the visual game aligned with the lesson rather than
+// asking learners to ignore unrelated falling characters.
+func syncFallingLetter() {
+	gameState.FallingLetters = nil
+	if !gameState.IsActive || gameState.Position >= len(gameState.CurrentText) {
 		return
 	}
-	
-	char := chars[rand.Intn(len(chars))]
-	
-	// Find a free lane for this character
-	numLanes := 20
-	laneWidth := 800 / numLanes
-	
-	// Try to find a lane that doesn't have too many letters
-	laneCounts := make([]int, numLanes)
-	for _, letter := range gameState.FallingLetters {
-		if letter.Active && letter.Lane >= 0 && letter.Lane < numLanes {
-			laneCounts[letter.Lane]++
-		}
+
+	char := string(gameState.CurrentText[gameState.Position])
+	display := char
+	if char == " " {
+		display = "␣"
 	}
-	
-	// Find lane with fewest letters
-	minLane := 0
-	minCount := laneCounts[0]
-	for i := 1; i < numLanes; i++ {
-		if laneCounts[i] < minCount {
-			minCount = laneCounts[i]
-			minLane = i
-		}
-	}
-	
-	lane := minLane
-	x := lane*laneWidth + laneWidth/2 - 15
-	y := -50 - rand.Intn(100)
-	speed := 0.8 + rand.Float64()*0.7
-	
-	gameState.FallingLetters = append(gameState.FallingLetters, FallingLetter{
-		Char:      char,
-		X:         x,
-		Y:         y,
-		Speed:     speed,
-		Active:    true,
-		TargetX:   x,
-		TargetY:   450 + rand.Intn(50),
-		Lane:      lane,
-		StartTime: time.Now(),
-	})
+	gameState.FallingLetters = []FallingLetter{{
+		Char: char, Display: display, X: 50, Y: -40, Active: true,
+	}}
 }
 
 func removeFallingLetter(char string) {
@@ -465,47 +417,32 @@ func removeFallingLetter(char string) {
 func updateFallingLetters() {
 	ticker := time.NewTicker(30 * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		gameState.mu.Lock()
-		
-		for i := range gameState.FallingLetters {
-			if gameState.FallingLetters[i].Active {
-				// Move letter down
-				gameState.FallingLetters[i].Y += int(gameState.FallingLetters[i].Speed * 3)
-				
-				// Check if letter passed the target zone
-				if gameState.FallingLetters[i].Y > 600 {
-					// Letter missed - count as mistake
-					gameState.FallingLetters[i].Active = false
-					gameState.Mistakes++
-					gameState.Combo = 0
-					
-					// Only if game is active
-					if gameState.IsActive && !gameState.Completed {
-						// Penalty: reduce score
-						gameState.Score = max(0, gameState.Score-5)
-					}
-				}
-			}
-		}
-		
-		// Add new falling letters periodically
-		if gameState.IsActive && !gameState.Completed {
-			activeCount := 0
-			for _, letter := range gameState.FallingLetters {
-				if letter.Active {
-					activeCount++
-				}
-			}
-			
-			// Maintain 15-20 active letters
-			if activeCount < 15 && len(gameState.FallingLetters) < 40 {
-				addFallingLetter()
-			}
-		}
-		
+		advanceFallingLetters()
 		gameState.mu.Unlock()
+	}
+}
+
+func advanceFallingLetters() {
+	if !gameState.IsActive || gameState.Completed {
+		return
+	}
+	for i := range gameState.FallingLetters {
+		if !gameState.FallingLetters[i].Active {
+			continue
+		}
+		gameState.FallingLetters[i].Y += 2
+		if gameState.FallingLetters[i].Y > 240 {
+			gameState.FallingLetters[i].Active = false
+			gameState.Mistakes++
+			gameState.Combo = 0
+			gameState.Score = max(0, gameState.Score-5)
+		}
+	}
+	if len(gameState.FallingLetters) == 0 || !gameState.FallingLetters[0].Active {
+		syncFallingLetter()
 	}
 }
 
@@ -525,8 +462,14 @@ func max(a, b int) int {
 }
 
 func respondJSON(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		log.Printf("Error encoding JSON: %v", err)
 	}
+}
+
+func methodNotAllowed(w http.ResponseWriter, allowed string) {
+	w.Header().Set("Allow", allowed)
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	respondJSON(w, Response{Success: false, Message: "Method not allowed"})
 }

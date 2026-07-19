@@ -1,0 +1,13 @@
+.git
+.air.toml
+build
+dist
+tmp
+coverage.out
+coverage.html
+*.log
+*.md
+Dockerfile
+LICENSE
+README.md
+main_test.go

@@ -1,0 +1,59 @@
+# .gitignore
+# Touch Typing Master - Stanley Chege Thuita
+# Email: altradits@gmail.com
+# LinkedIn: https://www.linkedin.com/in/stanmobitech/
+# Phone: +254707172370
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+touchtype-master
+touchtype-master.exe
+touchtype-master-mac
+touchtype-master-linux
+
+# Build directories
+build/
+dist/
+tmp/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+*.pid
+*.seed
+
+# Coverage
+coverage.out
+coverage.html
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Local tool metadata
+.air.*.log
