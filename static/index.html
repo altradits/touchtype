@@ -1,0 +1,902 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Touch Typing Master - Learn All Keys</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a, #1a1a3e, #0f3460);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb, #a29bfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none;
+        }
+
+        .subtitle {
+            color: #a8a8b3;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 20px;
+            max-width: 1100px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+        }
+
+        .stat-item {
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .stat-item .label {
+            font-size: 0.7em;
+            color: #a8a8b3;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-item .value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #48dbfb;
+        }
+
+        .stat-item .value.completed { color: #1dd1a1; }
+        .stat-item .value.mistakes { color: #ff6b6b; }
+        .stat-item .value.score { color: #feca57; }
+        .stat-item .value.combo { color: #a29bfe; }
+
+        .lesson-display {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            min-height: 70px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.3em;
+            line-height: 1.8;
+            letter-spacing: 0.5px;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lesson-display .char {
+            display: inline;
+            transition: all 0.15s;
+        }
+
+        .lesson-display .char.correct {
+            color: #1dd1a1;
+        }
+
+        .lesson-display .char.current {
+            background: rgba(72, 219, 251, 0.3);
+            border-bottom: 3px solid #48dbfb;
+            padding: 0 2px;
+            border-radius: 2px;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .lesson-display .char.error {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.2);
+        }
+
+        .lesson-display .char.pending {
+            color: #a8a8b3;
+        }
+
+        .keyboard-container {
+            position: relative;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            min-height: 280px;
+            overflow: hidden;
+        }
+
+        .falling-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .falling-letter {
+            position: absolute;
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #48dbfb;
+            text-shadow: 0 0 20px rgba(72, 219, 251, 0.5);
+            transition: none;
+            animation: glow 0.8s ease-in-out infinite alternate;
+            z-index: 10;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(72, 219, 251, 0.3); }
+            to { text-shadow: 0 0 30px rgba(72, 219, 251, 0.8); }
+        }
+
+        .falling-letter.home-row-char {
+            color: #feca57;
+            text-shadow: 0 0 20px rgba(254, 202, 87, 0.5);
+        }
+
+        .falling-letter.top-row-char {
+            color: #ff6b6b;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+
+        .falling-letter.bottom-row-char {
+            color: #a29bfe;
+            text-shadow: 0 0 20px rgba(162, 155, 254, 0.5);
+        }
+
+        .falling-letter.special-char {
+            color: #fd79a8;
+            text-shadow: 0 0 20px rgba(253, 121, 168, 0.5);
+        }
+
+        .keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 20;
+        }
+
+        .key-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .key {
+            min-width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            transition: all 0.1s;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        .key.home-row {
+            background: rgba(72, 219, 251, 0.15);
+            border-color: #48dbfb;
+        }
+
+        .key.home-row.active {
+            background: rgba(72, 219, 251, 0.3);
+            box-shadow: 0 0 20px rgba(72, 219, 251, 0.2);
+        }
+
+        .key.pressed {
+            transform: scale(0.92);
+            background: rgba(72, 219, 251, 0.3);
+            border-color: #48dbfb;
+        }
+
+        .key.correct-key {
+            background: rgba(29, 209, 161, 0.3);
+            border-color: #1dd1a1;
+            box-shadow: 0 0 25px rgba(29, 209, 161, 0.3);
+        }
+
+        .key.error-key {
+            background: rgba(255, 107, 107, 0.3);
+            border-color: #ff6b6b;
+            box-shadow: 0 0 25px rgba(255, 107, 107, 0.3);
+        }
+
+        .key.small { min-width: 30px; font-size: 0.65em; }
+        .key.wide { min-width: 60px; }
+        .key.xwide { min-width: 80px; }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: linear-gradient(45deg, #48dbfb, #0abde3);
+            color: #1a1a2e;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(72, 219, 251, 0.3);
+        }
+
+        .btn-reset {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-reset:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .message {
+            text-align: center;
+            padding: 12px;
+            margin-top: 12px;
+            border-radius: 10px;
+            font-size: 1em;
+            min-height: 50px;
+            font-weight: bold;
+        }
+
+        .message.success {
+            background: rgba(29, 209, 161, 0.2);
+            border: 1px solid #1dd1a1;
+            color: #1dd1a1;
+        }
+
+        .message.info {
+            background: rgba(72, 219, 251, 0.2);
+            border: 1px solid #48dbfb;
+            color: #48dbfb;
+        }
+
+        .message.error {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .message.warning {
+            background: rgba(254, 202, 87, 0.2);
+            border: 1px solid #feca57;
+            color: #feca57;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48dbfb, #1dd1a1, #feca57);
+            transition: width 0.3s;
+            border-radius: 3px;
+        }
+
+        .finger-hint {
+            font-size: 0.75em;
+            color: #a8a8b3;
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .combo-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            font-weight: bold;
+            color: #feca57;
+            text-shadow: 0 0 50px rgba(254, 202, 87, 0.5);
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .combo-display.show {
+            opacity: 1;
+            animation: comboPop 0.5s ease-out;
+        }
+
+        @keyframes comboPop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .game-container { padding: 12px; }
+            .lesson-display { font-size: 0.9em; padding: 12px; }
+            .key { min-width: 25px; height: 32px; font-size: 0.6em; }
+            .key.wide { min-width: 40px; }
+            .key.xwide { min-width: 50px; }
+            .key.small { min-width: 20px; font-size: 0.5em; }
+            .stats .stat-item .value { font-size: 1.1em; }
+            h1 { font-size: 1.5em; }
+            .falling-letter { font-size: 1.6em; }
+            .stat-item { min-width: 45px; }
+            .stat-item .label { font-size: 0.6em; }
+        }
+    </style>
+</head>
+<body>
+    <h1>⌨️ Touch Typing Master</h1>
+    <div class="subtitle">🎯 Master ALL Keyboard Keys • 🚀 Go Programming Ready</div>
+
+    <div class="combo-display" id="comboDisplay"></div>
+
+    <div class="game-container">
+        <div class="stats">
+            <div class="stat-item">
+                <div class="label">WPM</div>
+                <div class="value" id="wpm">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">Accuracy</div>
+                <div class="value" id="accuracy">100%</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">Mistakes</div>
+                <div class="value mistakes" id="mistakes">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">Score</div>
+                <div class="value score" id="score">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">Combo</div>
+                <div class="value combo" id="combo">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="label">Progress</div>
+                <div class="value" id="progress">0/33</div>
+            </div>
+        </div>
+
+        <div class="lesson-display" id="lessonDisplay">
+            <span style="color: #a8a8b3;">🎮 Press "Start" to begin your typing journey!</span>
+        </div>
+
+        <div class="progress-bar">
+            <div class="fill" id="progressFill" style="width: 0%;"></div>
+        </div>
+
+        <div class="keyboard-container">
+            <div class="falling-container" id="fallingContainer"></div>
+            <div class="keyboard" id="keyboard">
+                <div class="key-row">
+                    <div class="key small">`</div>
+                    <div class="key">1</div>
+                    <div class="key">2</div>
+                    <div class="key">3</div>
+                    <div class="key">4</div>
+                    <div class="key">5</div>
+                    <div class="key">6</div>
+                    <div class="key">7</div>
+                    <div class="key">8</div>
+                    <div class="key">9</div>
+                    <div class="key">0</div>
+                    <div class="key">-</div>
+                    <div class="key">=</div>
+                    <div class="key small wide">⌫</div>
+                </div>
+                <div class="key-row">
+                    <div class="key small wide">Tab</div>
+                    <div class="key">q</div>
+                    <div class="key">w</div>
+                    <div class="key">e</div>
+                    <div class="key">r</div>
+                    <div class="key">t</div>
+                    <div class="key">y</div>
+                    <div class="key">u</div>
+                    <div class="key">i</div>
+                    <div class="key">o</div>
+                    <div class="key">p</div>
+                    <div class="key">[</div>
+                    <div class="key">]</div>
+                    <div class="key small wide">\</div>
+                </div>
+                <div class="key-row">
+                    <div class="key small xwide">Caps</div>
+                    <div class="key home-row">a</div>
+                    <div class="key home-row">s</div>
+                    <div class="key home-row">d</div>
+                    <div class="key home-row">f</div>
+                    <div class="key">g</div>
+                    <div class="key">h</div>
+                    <div class="key home-row">j</div>
+                    <div class="key home-row">k</div>
+                    <div class="key home-row">l</div>
+                    <div class="key home-row">;</div>
+                    <div class="key small wide">'</div>
+                    <div class="key small wide">Enter</div>
+                </div>
+                <div class="key-row">
+                    <div class="key small xwide">Shift</div>
+                    <div class="key">z</div>
+                    <div class="key">x</div>
+                    <div class="key">c</div>
+                    <div class="key">v</div>
+                    <div class="key">b</div>
+                    <div class="key">n</div>
+                    <div class="key">m</div>
+                    <div class="key">,</div>
+                    <div class="key">.</div>
+                    <div class="key">/</div>
+                    <div class="key small xwide">Shift</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn">🚀 Start</button>
+            <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
+        </div>
+
+        <div class="message info" id="message">💡 Type the falling letters before they reach the bottom!</div>
+        <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</div>
+    </div>
+
+    <script>
+        // Audio Context for sound generation
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+            }
+
+            init() {
+                if (!this.initialized) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.initialized = true;
+                }
+                return this.ctx;
+            }
+
+            playTone(frequency, duration, type = 'sine', volume = 0.3) {
+                const ctx = this.init();
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                
+                oscillator.type = type;
+                oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+                
+                gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                oscillator.start(ctx.currentTime);
+                oscillator.stop(ctx.currentTime + duration);
+            }
+
+            playCorrect() {
+                // Adventure/chime sound - ascending notes
+                this.playTone(523, 0.1, 'sine', 0.3);
+                setTimeout(() => this.playTone(659, 0.1, 'sine', 0.3), 100);
+                setTimeout(() => this.playTone(784, 0.15, 'sine', 0.4), 200);
+            }
+
+            playCombo(combo) {
+                // Higher pitch for higher combos
+                const baseFreq = 523 + combo * 20;
+                this.playTone(Math.min(baseFreq, 1200), 0.15, 'sine', 0.3);
+                setTimeout(() => this.playTone(Math.min(baseFreq + 100, 1300), 0.1, 'sine', 0.2), 80);
+            }
+
+            playMistake() {
+                // Warning/dissonant sound
+                this.playTone(300, 0.3, 'sawtooth', 0.2);
+                setTimeout(() => this.playTone(200, 0.2, 'sawtooth', 0.15), 150);
+            }
+
+            playLevelComplete() {
+                // Celebration - ascending arpeggio
+                const notes = [523, 587, 659, 784, 880];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 0.15, 'sine', 0.3), i * 100);
+                });
+            }
+
+            playGameComplete() {
+                // Epic victory
+                const notes = [523, 587, 659, 784, 880, 988, 1047];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 0.2, 'sine', 0.4), i * 120);
+                });
+            }
+
+            playMiss() {
+                // Low warning sound
+                this.playTone(150, 0.4, 'sawtooth', 0.15);
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        let gameActive = false;
+        let gameState = null;
+        let animationFrame = null;
+        let lastKeyPress = null;
+
+        const lessonDisplay = document.getElementById('lessonDisplay');
+        const wpmDisplay = document.getElementById('wpm');
+        const accuracyDisplay = document.getElementById('accuracy');
+        const mistakesDisplay = document.getElementById('mistakes');
+        const scoreDisplay = document.getElementById('score');
+        const comboDisplay = document.getElementById('combo');
+        const progressDisplay = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const messageDiv = document.getElementById('message');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const fallingContainer = document.getElementById('fallingContainer');
+        const comboPopup = document.getElementById('comboDisplay');
+
+        // Key mapping for visual feedback
+        const keyMap = {};
+        document.querySelectorAll('.key').forEach(key => {
+            const text = key.textContent.trim();
+            if (text.length === 1) {
+                keyMap[text] = key;
+            }
+        });
+
+        async function fetchState() {
+            try {
+                const response = await fetch('/api/state');
+                const data = await response.json();
+                if (data.success) {
+                    gameState = data.state;
+                    updateDisplay();
+                }
+            } catch (error) {
+                console.error('Error fetching state:', error);
+            }
+        }
+
+        async function startGame() {
+            try {
+                sound.init();
+                const response = await fetch('/api/start', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    gameState = data.state;
+                    gameActive = true;
+                    updateDisplay();
+                    messageDiv.className = 'message info';
+                    messageDiv.textContent = '🎯 Type the falling letters! Build your combo!';
+                    startBtn.disabled = true;
+                    startBtn.textContent = '🎮 Playing...';
+                    startFallingAnimation();
+                }
+            } catch (error) {
+                console.error('Error starting game:', error);
+            }
+        }
+
+        async function resetGame() {
+            try {
+                const response = await fetch('/api/reset', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    gameState = data.state;
+                    gameActive = false;
+                    updateDisplay();
+                    messageDiv.className = 'message info';
+                    messageDiv.textContent = '🔄 Game reset. Ready to type!';
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🚀 Start';
+                    fallingContainer.innerHTML = '';
+                    if (animationFrame) {
+                        cancelAnimationFrame(animationFrame);
+                        animationFrame = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Error resetting game:', error);
+            }
+        }
+
+        async function sendKeyPress(key) {
+            if (!gameActive || !gameState) return;
+
+            try {
+                const response = await fetch('/api/keypress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: key })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    gameState = data.state;
+                    updateDisplay();
+                    
+                    // Play sounds and visual feedback
+                    const keyElement = keyMap[key];
+                    if (keyElement) {
+                        keyElement.classList.add('pressed');
+                        setTimeout(() => keyElement.classList.remove('pressed'), 150);
+                    }
+
+                    if (data.message && data.message.includes('Level Complete')) {
+                        sound.playLevelComplete();
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = '✨ ' + data.message;
+                    } else if (data.message && data.message.includes('MASTER')) {
+                        sound.playGameComplete();
+                        messageDiv.className = 'message success';
+                        messageDiv.textContent = '🏆 ' + data.message;
+                        gameActive = false;
+                        startBtn.disabled = false;
+                        startBtn.textContent = '🚀 Start';
+                    } else {
+                        // Normal key press - check if it was correct by checking position advancement
+                        // We need to check if the state changed
+                        if (data.state && data.state.position > 0) {
+                            // Check if this was a correct key press
+                            const expected = gameState.currentText[gameState.position - 1];
+                            if (key === expected) {
+                                sound.playCorrect();
+                                if (keyElement) {
+                                    keyElement.classList.add('correct-key');
+                                    setTimeout(() => keyElement.classList.remove('correct-key'), 300);
+                                }
+                                
+                                // Show combo popup
+                                if (gameState.combo > 2) {
+                                    showComboPopup(gameState.combo);
+                                    sound.playCombo(gameState.combo);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Wrong key press
+                    sound.playMistake();
+                    const keyElement = keyMap[key];
+                    if (keyElement) {
+                        keyElement.classList.add('error-key');
+                        setTimeout(() => keyElement.classList.remove('error-key'), 300);
+                    }
+                    messageDiv.className = 'message error';
+                    const expected = gameState.currentText[gameState.position];
+                    messageDiv.textContent = '❌ Wrong! Expected: "' + expected + '"';
+                }
+            } catch (error) {
+                console.error('Error sending keypress:', error);
+            }
+        }
+
+        function showComboPopup(combo) {
+            comboPopup.textContent = `🔥 ${combo}x COMBO!`;
+            comboPopup.className = 'combo-display show';
+            clearTimeout(comboPopup.timeout);
+            comboPopup.timeout = setTimeout(() => {
+                comboPopup.className = 'combo-display';
+            }, 800);
+        }
+
+        function updateDisplay() {
+            if (!gameState) return;
+
+            wpmDisplay.textContent = Math.round(gameState.wpm || 0);
+            accuracyDisplay.textContent = Math.round(gameState.accuracy || 100) + '%';
+            mistakesDisplay.textContent = gameState.mistakes || 0;
+            scoreDisplay.textContent = gameState.score || 0;
+            comboDisplay.textContent = gameState.combo || 0;
+            
+            const totalLines = gameState.lessonLines ? gameState.lessonLines.length : 33;
+            const currentLine = gameState.currentLine + 1;
+            progressDisplay.textContent = `${Math.min(currentLine, totalLines)}/${totalLines}`;
+            progressFill.style.width = `${(gameState.currentLine / totalLines) * 100}%`;
+
+            if (gameState.currentText) {
+                let html = '';
+                const text = gameState.currentText;
+                const position = gameState.position;
+                
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    let className = 'char';
+                    if (i < position) {
+                        className += ' correct';
+                    } else if (i === position) {
+                        className += ' current';
+                    } else {
+                        className += ' pending';
+                    }
+                    if (char === ' ') {
+                        className += ' space';
+                        html += `<span class="${className}">&nbsp;</span>`;
+                    } else {
+                        html += `<span class="${className}">${char}</span>`;
+                    }
+                }
+                lessonDisplay.innerHTML = html;
+            }
+
+            if (gameState.completed) {
+                messageDiv.className = 'message success';
+                messageDiv.textContent = '🏆 MASTER TYPIST! You can now type like a pro!';
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 Start';
+                gameActive = false;
+                sound.playGameComplete();
+            }
+        }
+
+        function getCharClass(char) {
+            const homeRow = new Set(['a', 's', 'd', 'f', 'j', 'k', 'l', ';']);
+            const topRow = new Set(['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p']);
+            const bottomRow = new Set(['z', 'x', 'c', 'v', 'b', 'n', 'm']);
+            const special = new Set(['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '=', '[', ']', '\\', "'", ',', '.', '/', '`', '~']);
+            
+            if (homeRow.has(char)) return 'home-row-char';
+            if (topRow.has(char)) return 'top-row-char';
+            if (bottomRow.has(char)) return 'bottom-row-char';
+            if (special.has(char)) return 'special-char';
+            return '';
+        }
+
+        async function fetchFallingLetters() {
+            try {
+                const response = await fetch('/api/falling');
+                const data = await response.json();
+                if (data.success && data.letters) {
+                    renderFallingLetters(data.letters);
+                }
+            } catch (error) {
+                console.error('Error fetching falling letters:', error);
+            }
+        }
+
+        function renderFallingLetters(letters) {
+            fallingContainer.innerHTML = '';
+            
+            letters.forEach(letter => {
+                if (!letter.Active) return;
+                const el = document.createElement('div');
+                el.className = 'falling-letter ' + getCharClass(letter.Char);
+                el.textContent = letter.Char;
+                el.style.left = letter.X + 'px';
+                el.style.top = letter.Y + 'px';
+                fallingContainer.appendChild(el);
+            });
+        }
+
+        function startFallingAnimation() {
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            
+            async function update() {
+                if (gameActive) {
+                    await fetchFallingLetters();
+                    animationFrame = requestAnimationFrame(update);
+                }
+            }
+            update();
+        }
+
+        // Keyboard event handler
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Shift' || event.key === 'Control' || event.key === 'Alt' || 
+                event.key === 'Meta' || event.key === 'CapsLock' || event.key === 'Tab' ||
+                event.key === 'Escape') {
+                return;
+            }
+            
+            event.preventDefault();
+            
+            let key = event.key;
+            if (key === ';') key = ';';
+            else if (key === ' ') key = ' ';
+            else if (key.length === 1) {
+                key = key.toLowerCase();
+            }
+            
+            sendKeyPress(key);
+        });
+
+        // Click handlers for on-screen keyboard
+        document.querySelectorAll('.key').forEach(keyElement => {
+            keyElement.addEventListener('click', () => {
+                const text = keyElement.textContent.trim();
+                if (text.length === 1) {
+                    sendKeyPress(text.toLowerCase());
+                }
+            });
+        });
+
+        startBtn.addEventListener('click', startGame);
+        resetBtn.addEventListener('click', resetGame);
+
+        // Initial state fetch
+        fetchState();
+        setInterval(fetchState, 2000);
+
+        console.log('⌨️ Touch Typing Master loaded!');
+        console.log('🎯 Master ALL keyboard keys for Go programming!');
+        console.log('🏠 Home Row: A S D F J K L ;');
+        console.log('🔥 Build combos for bonus points!');
+    </script>
+</body>
+</html>
