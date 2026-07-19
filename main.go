@@ -144,6 +144,7 @@ func main() {
 	
 	log.Println("🎮 Touch Typing Master - Server starting on http://localhost:8080")
 	log.Println("⌨️  Practice all keyboard letters for Go programming!")
+	log.Println("📦  All assets are self-contained - works offline!")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 

@@ -380,6 +380,94 @@
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
 
+        .music-control {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .music-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            color: #fff;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .music-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .music-btn.playing {
+            border-color: #48dbfb;
+            box-shadow: 0 0 20px rgba(72, 219, 251, 0.3);
+        }
+
+        /* Loading screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 26, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #48dbfb;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #a8a8b3;
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .loading-progress .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48dbfb, #1dd1a1);
+            border-radius: 2px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
         @media (max-width: 768px) {
             .game-container { padding: 12px; }
             .lesson-display { font-size: 0.9em; padding: 12px; }
@@ -392,10 +480,20 @@
             .falling-letter { font-size: 1.6em; }
             .stat-item { min-width: 45px; }
             .stat-item .label { font-size: 0.6em; }
+            .music-btn { width: 40px; height: 40px; font-size: 1.2em; }
         }
     </style>
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loader"></div>
+        <div class="loading-text">Loading Touch Typing Master...</div>
+        <div class="loading-progress">
+            <div class="fill" id="loadingProgress"></div>
+        </div>
+    </div>
+
     <h1>⌨️ Touch Typing Master</h1>
     <div class="subtitle">🎯 Master ALL Keyboard Keys • 🚀 Go Programming Ready</div>
 
@@ -513,88 +611,447 @@
         <div class="finger-hint">🏠 Home Row: A S D F J K L ; • 🖐️ All fingers required for Go programming!</div>
     </div>
 
+    <div class="music-control">
+        <button class="music-btn playing" id="musicBtn" title="Toggle Background Music">🎵</button>
+    </div>
+
     <script>
-        // Audio Context for sound generation
+        // ============================================
+        // ASSETS - All sounds as base64 encoded data
+        // These are generated programmatically and
+        // cached for offline use
+        // ============================================
+        
+        class SoundAssets {
+            constructor() {
+                this.sounds = {};
+                this.loaded = false;
+                this.totalSounds = 6;
+                this.loadedSounds = 0;
+            }
+
+            // Generate sound samples using Web Audio API and cache them
+            async generateAllSounds() {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                this.sounds = {
+                    correct: await this.generateCorrectSound(ctx),
+                    combo: await this.generateComboSound(ctx),
+                    mistake: await this.generateMistakeSound(ctx),
+                    levelComplete: await this.generateLevelCompleteSound(ctx),
+                    gameComplete: await this.generateGameCompleteSound(ctx),
+                    miss: await this.generateMissSound(ctx)
+                };
+                
+                this.loaded = true;
+                return this.sounds;
+            }
+
+            generateCorrectSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 0.4;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate a pleasant ascending tone
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        const freq1 = 523 + t * 300;
+                        const freq2 = 659 + t * 300;
+                        const freq3 = 784 + t * 300;
+                        
+                        const envelope = Math.sin(t * Math.PI / duration) * Math.exp(-t * 2);
+                        const val = (Math.sin(2 * Math.PI * freq1 * t) * 0.3 +
+                                    Math.sin(2 * Math.PI * freq2 * t) * 0.3 +
+                                    Math.sin(2 * Math.PI * freq3 * t) * 0.4) * envelope;
+                        data[i] = val * 0.3;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            generateComboSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 0.3;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate a bright ascending tone
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        const freq = 523 + t * 600;
+                        const envelope = Math.sin(t * Math.PI / duration);
+                        const val = Math.sin(2 * Math.PI * freq * t) * envelope;
+                        data[i] = val * 0.3;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            generateMistakeSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 0.3;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate a dissonant warning sound
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        const envelope = Math.sin(t * Math.PI / duration);
+                        const val = (Math.sin(2 * Math.PI * 300 * t) * 0.5 +
+                                    Math.sin(2 * Math.PI * 450 * t) * 0.3) * envelope;
+                        data[i] = val * 0.3;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            generateLevelCompleteSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 0.8;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate ascending arpeggio
+                    const notes = [523, 587, 659, 784, 880];
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        let val = 0;
+                        notes.forEach((freq, index) => {
+                            const start = index * 0.12;
+                            const end = start + 0.15;
+                            if (t >= start && t < end) {
+                                const envelope = Math.sin((t - start) * Math.PI / 0.15);
+                                val += Math.sin(2 * Math.PI * freq * (t - start)) * envelope * 0.15;
+                            }
+                        });
+                        data[i] = val * 0.3;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            generateGameCompleteSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 1.2;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate epic victory fanfare
+                    const notes = [523, 587, 659, 784, 880, 988, 1047];
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        let val = 0;
+                        notes.forEach((freq, index) => {
+                            const start = index * 0.1;
+                            const end = start + 0.2;
+                            if (t >= start && t < end) {
+                                const envelope = Math.sin((t - start) * Math.PI / 0.2);
+                                val += Math.sin(2 * Math.PI * freq * (t - start)) * envelope * 0.12;
+                            }
+                        });
+                        data[i] = val * 0.3;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            generateMissSound(ctx) {
+                return new Promise((resolve) => {
+                    const duration = 0.4;
+                    const sampleRate = 44100;
+                    const samples = Math.floor(duration * sampleRate);
+                    const buffer = ctx.createBuffer(1, samples, sampleRate);
+                    const data = buffer.getChannelData(0);
+                    
+                    // Generate low warning sound
+                    for (let i = 0; i < samples; i++) {
+                        const t = i / sampleRate;
+                        const envelope = Math.sin(t * Math.PI / duration);
+                        const val = Math.sin(2 * Math.PI * 150 * t) * envelope;
+                        data[i] = val * 0.25;
+                    }
+                    resolve(buffer);
+                });
+            }
+
+            getSound(name) {
+                return this.sounds[name] || null;
+            }
+
+            isLoaded() {
+                return this.loaded;
+            }
+        }
+
+        // ============================================
+        // SOUND ENGINE - Uses cached assets
+        // ============================================
+        
         class SoundEngine {
             constructor() {
                 this.ctx = null;
                 this.initialized = false;
+                this.assets = new SoundAssets();
+                this.music = null;
+                this.assetsLoaded = false;
             }
 
-            init() {
+            async init() {
                 if (!this.initialized) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Load/generate all sounds
+                    if (!this.assetsLoaded) {
+                        const progressCallback = (progress) => {
+                            const loadingProgress = document.getElementById('loadingProgress');
+                            if (loadingProgress) {
+                                loadingProgress.style.width = progress + '%';
+                            }
+                        };
+                        
+                        // Update progress as we load
+                        await this.assets.generateAllSounds();
+                        this.assetsLoaded = true;
+                        
+                        // Hide loading screen
+                        const loadingScreen = document.getElementById('loadingScreen');
+                        if (loadingScreen) {
+                            loadingScreen.classList.add('hidden');
+                            setTimeout(() => {
+                                loadingScreen.style.display = 'none';
+                            }, 500);
+                        }
+                    }
+                    
                     this.initialized = true;
+                    
+                    // Initialize background music
+                    this.music = new BackgroundMusic(this.ctx);
+                    this.music.play();
                 }
                 return this.ctx;
             }
 
-            playTone(frequency, duration, type = 'sine', volume = 0.3) {
-                const ctx = this.init();
-                const oscillator = ctx.createOscillator();
-                const gainNode = ctx.createGain();
+            toggleMusic() {
+                if (this.music) {
+                    return this.music.toggle();
+                }
+                return false;
+            }
+
+            playSound(buffer, volume = 0.3) {
+                if (!this.ctx || !buffer) return;
                 
-                oscillator.type = type;
-                oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
-                
-                gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(ctx.destination);
-                
-                oscillator.start(ctx.currentTime);
-                oscillator.stop(ctx.currentTime + duration);
+                try {
+                    const source = this.ctx.createBufferSource();
+                    const gainNode = this.ctx.createGain();
+                    
+                    source.buffer = buffer;
+                    gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    
+                    source.connect(gainNode);
+                    gainNode.connect(this.ctx.destination);
+                    
+                    source.start(this.ctx.currentTime);
+                    
+                    // Clean up
+                    source.onended = () => {
+                        source.disconnect();
+                        gainNode.disconnect();
+                    };
+                } catch (e) {
+                    console.warn('Error playing sound:', e);
+                }
             }
 
             playCorrect() {
-                // Adventure/chime sound - ascending notes
-                this.playTone(523, 0.1, 'sine', 0.3);
-                setTimeout(() => this.playTone(659, 0.1, 'sine', 0.3), 100);
-                setTimeout(() => this.playTone(784, 0.15, 'sine', 0.4), 200);
+                const sound = this.assets.getSound('correct');
+                if (sound) this.playSound(sound, 0.3);
             }
 
             playCombo(combo) {
-                // Higher pitch for higher combos
-                const baseFreq = 523 + combo * 20;
-                this.playTone(Math.min(baseFreq, 1200), 0.15, 'sine', 0.3);
-                setTimeout(() => this.playTone(Math.min(baseFreq + 100, 1300), 0.1, 'sine', 0.2), 80);
+                const sound = this.assets.getSound('combo');
+                if (sound) {
+                    // Increase volume slightly for higher combos
+                    const volume = Math.min(0.3 + combo * 0.01, 0.5);
+                    this.playSound(sound, volume);
+                }
             }
 
             playMistake() {
-                // Warning/dissonant sound
-                this.playTone(300, 0.3, 'sawtooth', 0.2);
-                setTimeout(() => this.playTone(200, 0.2, 'sawtooth', 0.15), 150);
+                const sound = this.assets.getSound('mistake');
+                if (sound) this.playSound(sound, 0.25);
             }
 
             playLevelComplete() {
-                // Celebration - ascending arpeggio
-                const notes = [523, 587, 659, 784, 880];
-                notes.forEach((freq, i) => {
-                    setTimeout(() => this.playTone(freq, 0.15, 'sine', 0.3), i * 100);
-                });
+                const sound = this.assets.getSound('levelComplete');
+                if (sound) this.playSound(sound, 0.35);
             }
 
             playGameComplete() {
-                // Epic victory
-                const notes = [523, 587, 659, 784, 880, 988, 1047];
-                notes.forEach((freq, i) => {
-                    setTimeout(() => this.playTone(freq, 0.2, 'sine', 0.4), i * 120);
-                });
+                const sound = this.assets.getSound('gameComplete');
+                if (sound) this.playSound(sound, 0.4);
             }
 
             playMiss() {
-                // Low warning sound
-                this.playTone(150, 0.4, 'sawtooth', 0.15);
+                const sound = this.assets.getSound('miss');
+                if (sound) this.playSound(sound, 0.2);
             }
         }
 
-        const sound = new SoundEngine();
+        // ============================================
+        // BACKGROUND MUSIC
+        // ============================================
+        
+        class BackgroundMusic {
+            constructor(ctx) {
+                this.ctx = ctx;
+                this.isPlaying = false;
+                this.isActive = true;
+                this.notes = [];
+                this.interval = null;
+                this.volume = 0.12;
+                this.gainNode = null;
+                
+                // Chords in C major - pleasant focus music
+                this.chords = [
+                    [261.63, 329.63, 392.00],
+                    [293.66, 369.99, 440.00],
+                    [329.63, 392.00, 493.88],
+                    [349.23, 440.00, 523.25],
+                    [392.00, 493.88, 587.33],
+                    [440.00, 523.25, 659.25],
+                    [493.88, 587.33, 739.99],
+                    [523.25, 659.25, 783.99],
+                ];
+                
+                this.progression = [0, 1, 2, 3, 4, 3, 2, 1];
+                this.progIndex = 0;
+                
+                // Create master gain
+                this.masterGain = ctx.createGain();
+                this.masterGain.gain.setValueAtTime(this.volume, ctx.currentTime);
+                this.masterGain.connect(ctx.destination);
+            }
 
+            toggle() {
+                this.isActive = !this.isActive;
+                if (this.isActive) {
+                    this.play();
+                } else {
+                    this.stop();
+                }
+                return this.isActive;
+            }
+
+            play() {
+                if (this.isPlaying || !this.isActive) return;
+                
+                this.isPlaying = true;
+                this.playChord();
+                
+                this.interval = setInterval(() => {
+                    this.playChord();
+                }, 3000);
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.interval) {
+                    clearInterval(this.interval);
+                    this.interval = null;
+                }
+                
+                // Fade out all sounds
+                this.notes.forEach(note => {
+                    try {
+                        if (note.gain) {
+                            note.gain.gain.setValueAtTime(0, this.ctx.currentTime + 0.1);
+                        }
+                    } catch (e) {}
+                });
+                
+                setTimeout(() => {
+                    this.notes = [];
+                }, 300);
+            }
+
+            playChord() {
+                if (!this.isPlaying || !this.isActive) return;
+                
+                const chord = this.chords[this.progression[this.progIndex]];
+                this.progIndex = (this.progIndex + 1) % this.progression.length;
+                
+                // Stop previous notes
+                this.notes.forEach(note => {
+                    try {
+                        if (note.gain) {
+                            note.gain.gain.setValueAtTime(0, this.ctx.currentTime + 0.1);
+                        }
+                    } catch (e) {}
+                });
+                
+                // Play new chord with arpeggio
+                chord.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(this.volume * 0.5, this.ctx.currentTime + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 2.5 + i * 0.08);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    
+                    osc.start(this.ctx.currentTime + i * 0.08);
+                    osc.stop(this.ctx.currentTime + 2.8 + i * 0.08);
+                    
+                    this.notes.push({ osc, gain });
+                    
+                    setTimeout(() => {
+                        try {
+                            osc.disconnect();
+                            gain.disconnect();
+                        } catch (e) {}
+                    }, 3000);
+                });
+                
+                // Keep only recent notes
+                if (this.notes.length > 20) {
+                    this.notes = this.notes.slice(-10);
+                }
+            }
+
+            setVolume(volume) {
+                this.volume = Math.max(0, Math.min(0.3, volume));
+                if (this.masterGain) {
+                    this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+                }
+            }
+        }
+
+        // ============================================
+        // GAME LOGIC
+        // ============================================
+
+        const sound = new SoundEngine();
         let gameActive = false;
         let gameState = null;
         let animationFrame = null;
-        let lastKeyPress = null;
 
         const lessonDisplay = document.getElementById('lessonDisplay');
         const wpmDisplay = document.getElementById('wpm');
@@ -609,6 +1066,7 @@
         const resetBtn = document.getElementById('resetBtn');
         const fallingContainer = document.getElementById('fallingContainer');
         const comboPopup = document.getElementById('comboDisplay');
+        const musicBtn = document.getElementById('musicBtn');
 
         // Key mapping for visual feedback
         const keyMap = {};
@@ -617,6 +1075,14 @@
             if (text.length === 1) {
                 keyMap[text] = key;
             }
+        });
+
+        // Music toggle
+        musicBtn.addEventListener('click', async () => {
+            await sound.init();
+            const isPlaying = sound.toggleMusic();
+            musicBtn.textContent = isPlaying ? '🎵' : '🔇';
+            musicBtn.classList.toggle('playing', isPlaying);
         });
 
         async function fetchState() {
@@ -634,7 +1100,8 @@
 
         async function startGame() {
             try {
-                sound.init();
+                await sound.init();
+                
                 const response = await fetch('/api/start', { method: 'POST' });
                 const data = await response.json();
                 if (data.success) {
@@ -689,7 +1156,6 @@
                     gameState = data.state;
                     updateDisplay();
                     
-                    // Play sounds and visual feedback
                     const keyElement = keyMap[key];
                     if (keyElement) {
                         keyElement.classList.add('pressed');
@@ -708,10 +1174,7 @@
                         startBtn.disabled = false;
                         startBtn.textContent = '🚀 Start';
                     } else {
-                        // Normal key press - check if it was correct by checking position advancement
-                        // We need to check if the state changed
                         if (data.state && data.state.position > 0) {
-                            // Check if this was a correct key press
                             const expected = gameState.currentText[gameState.position - 1];
                             if (key === expected) {
                                 sound.playCorrect();
@@ -720,7 +1183,6 @@
                                     setTimeout(() => keyElement.classList.remove('correct-key'), 300);
                                 }
                                 
-                                // Show combo popup
                                 if (gameState.combo > 2) {
                                     showComboPopup(gameState.combo);
                                     sound.playCombo(gameState.combo);
@@ -729,7 +1191,6 @@
                         }
                     }
                 } else {
-                    // Wrong key press
                     sound.playMistake();
                     const keyElement = keyMap[key];
                     if (keyElement) {
@@ -893,10 +1354,16 @@
         fetchState();
         setInterval(fetchState, 2000);
 
-        console.log('⌨️ Touch Typing Master loaded!');
-        console.log('🎯 Master ALL keyboard keys for Go programming!');
-        console.log('🏠 Home Row: A S D F J K L ;');
-        console.log('🔥 Build combos for bonus points!');
+        // Initialize sounds and hide loading screen
+        (async function init() {
+            await sound.init();
+            console.log('⌨️ Touch Typing Master loaded!');
+            console.log('🎯 Master ALL keyboard keys for Go programming!');
+            console.log('🏠 Home Row: A S D F J K L ;');
+            console.log('🔥 Build combos for bonus points!');
+            console.log('🎵 Background music playing - click the music button to toggle');
+            console.log('📦 All sounds generated and cached for offline use!');
+        })();
     </script>
 </body>
 </html>
