@@ -9,12 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
 )
 
-//go:embed static/*
+//go:embed all:static
 var staticFiles embed.FS
 
 // Version and author information - set during build
@@ -192,19 +193,35 @@ func main() {
 	log.Fatal(http.ListenAndServe(address, nil))
 }
 
+var staticContentTypes = map[string]string{
+	".html": "text/html; charset=utf-8",
+	".js":   "text/javascript; charset=utf-8",
+	".css":  "text/css; charset=utf-8",
+	".mp3":  "audio/mpeg",
+}
+
 func serveFrontend(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/" {
-		content, err := staticFiles.ReadFile("static/index.html")
-		if err != nil {
-			http.Error(w, "Could not load frontend", http.StatusInternalServerError)
+	name := "index.html"
+	if r.URL.Path != "/" {
+		name = path.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+		if name == "." || name == "index.html" || strings.Contains(name, "..") {
+			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		w.Write(content)
+	}
+	content, err := staticFiles.ReadFile("static/" + name)
+	if err != nil {
+		http.NotFound(w, r)
 		return
 	}
-	http.NotFound(w, r)
+	contentType := staticContentTypes[path.Ext(name)]
+	if contentType == "" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(content)
 }
 
 func startGame(w http.ResponseWriter, r *http.Request) {
