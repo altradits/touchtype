@@ -20,6 +20,7 @@ touchtype-master-linux
 # Build directories
 build/
 dist/
+web/
 tmp/
 
 # Go workspace file

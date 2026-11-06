@@ -11,6 +11,27 @@ Touch Typing Master is a local, offline-ready typing game. It teaches the home r
 
 The app runs entirely on your machine. After the initial install, it does not need an internet connection.
 
+## Play in browser (no install, no server)
+
+The game runs entirely in the browser from static files. Clone once, then build and open it:
+
+```bash
+git clone https://github.com/altradits/touchtype touchtype
+cd touchtype
+make web
+```
+
+Then either open `web/index.html` directly in your browser, or serve the folder on your machine:
+
+```bash
+# macOS/Linux (Python 3)
+python3 -m http.server 8080 --directory web
+
+# then visit http://localhost:8080
+```
+
+The browser build makes zero network calls during play: progress is stored in `localStorage` and sound effects are off by default (toggle with the **Sound FX** button). Plain JavaScript was chosen over Go WASM to keep the download tiny (tens of kilobytes instead of megabytes), so the game loads fast on cheap devices and slow connections.
+
 ## Choose a setup method
 
 | Method | Best for | Needs |
@@ -21,10 +42,10 @@ The app runs entirely on your machine. After the initial install, it does not ne
 
 ## 1. Get the source code
 
-Open Terminal, PowerShell, or a Linux shell and run the following. Replace `<repository-url>` with this project’s Git URL.
+Open Terminal, PowerShell, or a Linux shell and run the following:
 
 ```bash
-git clone <repository-url> touchtype
+git clone https://github.com/altradits/touchtype touchtype
 cd touchtype
 ```
 
@@ -67,7 +88,7 @@ Then open `http://localhost:3000`.
 4. Clone or extract the project, then run it:
 
    ```powershell
-   git clone <repository-url> touchtype
+   git clone https://github.com/altradits/touchtype touchtype
    Set-Location touchtype
    go run .
    ```
@@ -85,7 +106,7 @@ Windows alternative: install Go with `winget install GoLang.Go` if Winget is ava
    ```bash
    git --version
    go version
-   git clone <repository-url> touchtype
+   git clone https://github.com/altradits/touchtype touchtype
    cd touchtype
    go run .
    ```
@@ -127,7 +148,7 @@ Windows alternative: install Go with `winget install GoLang.Go` if Winget is ava
 4. Clone and run:
 
    ```bash
-   git clone <repository-url> touchtype
+   git clone https://github.com/altradits/touchtype touchtype
    cd touchtype
    go run .
    ```
@@ -151,7 +172,7 @@ ChromeOS runs the app through its Linux development environment.
 4. Clone and run the project:
 
    ```bash
-   git clone <repository-url> touchtype
+   git clone https://github.com/altradits/touchtype touchtype
    cd touchtype
    go run .
    ```
@@ -268,13 +289,14 @@ The outputs are written to `dist/`. macOS may require you to permit a downloaded
 
 ## How to play
 
-1. Click **Start**.
-2. Type the highlighted next character in the lesson. The falling prompt is the same character.
-3. Keep the prompt from reaching the keyboard to preserve your combo and score. A missed prompt resets the combo and applies a small score penalty.
-4. Accuracy is based on typed keys. Finish a lesson to advance automatically.
-5. Use **Reset** to begin a new run from lesson one. Background music is off by default; use the music button to opt in.
+1. Start typing immediately; the first drill is already on screen and the timer starts with your first key.
+2. Type the highlighted character. The on-screen keyboard lights up the target key and the finger hint names the finger to use.
+3. Build a streak to raise your score multiplier (2x at 9, 3x at 16, 4x at 26). A wrong key resets the streak and multiplier.
+4. Watch for surprise encounters: boss drills add a countdown, stealth drills blur upcoming targets, and hyper bursts award double XP.
+5. Reach 95% accuracy over 25 stage keys to unlock the next stage. Progress is saved in your browser automatically.
+6. Use **Reset Dojo** to start over from stage one. Sound effects are off by default; use the **Sound FX** button to opt in.
 
-Later lessons intentionally include spaces, capitals, punctuation, and symbols. Use a physical keyboard and the Shift key where needed; the on-screen keyboard is a visual guide, not a replacement for every modified key.
+Later stages intentionally include spaces, capitals, punctuation, and symbols. Use a physical keyboard and the Shift key where needed; the on-screen keyboard is a visual guide, not a replacement for every modified key.
 
 ## Development and checks
 
@@ -282,6 +304,12 @@ Later lessons intentionally include spaces, capitals, punctuation, and symbols. 
 make test
 make vet
 make build
+```
+
+The browser game core has its own suite (no dependencies, needs Node 18+):
+
+```bash
+node --test static/js/game.test.js
 ```
 
 On Windows without GNU Make, use the equivalent Go commands:

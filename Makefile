@@ -21,6 +21,7 @@ AUTHOR_PHONE := "+254707172370"
 BUILD_DIR := ./build
 DIST_DIR := ./dist
 DOWNLOAD_DIR := $(DIST_DIR)/downloads
+WEB_DIR := ./web
 GO_VERSION := $(shell go version | cut -d' ' -f3 | sed 's/go//')
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -148,6 +149,30 @@ build-darwin-arm64: ## Build for macOS ARM64 (Apple Silicon)
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/darwin-arm64/$(BINARY_NAME)-mac-arm64 .
 	@echo "$(COLOR_GREEN)✓ macOS ARM64 build complete: $(DIST_DIR)/darwin-arm64/$(BINARY_NAME)-mac-arm64$(COLOR_RESET)"
 
+.PHONY: web
+web: ## Build the offline browser game into ./web (no Go server needed to play)
+	@echo "$(COLOR_CYAN)Building browser game $(PROJECT_NAME) v$(VERSION)...$(COLOR_RESET)"
+	@rm -rf $(WEB_DIR)
+	@mkdir -p $(WEB_DIR)/js $(WEB_DIR)/css $(WEB_DIR)/sound
+	@cp static/index.html $(WEB_DIR)/index.html
+	@cp static/js/game.js $(WEB_DIR)/js/game.js
+	@cp static/css/style.css $(WEB_DIR)/css/style.css
+	@cp static/sound/type_sound.mp3 $(WEB_DIR)/sound/type_sound.mp3
+	@echo "$(VERSION)+$(GIT_COMMIT)" > $(WEB_DIR)/VERSION
+	@echo "$(COLOR_YELLOW)Checking for external references (must be none)...$(COLOR_RESET)"
+	@if grep -rEn 'https?://|fetch\(|XMLHttpRequest|WebSocket' $(WEB_DIR)/index.html $(WEB_DIR)/js $(WEB_DIR)/css; then \
+		echo "$(COLOR_RED)External reference found in web build!$(COLOR_RESET)"; exit 1; \
+	fi
+	@echo "$(COLOR_GREEN)No external references. Play works fully offline.$(COLOR_RESET)"
+	@echo "$(COLOR_BOLD)File sizes$(COLOR_RESET)"
+	@ls -lh $(WEB_DIR)/index.html $(WEB_DIR)/js/game.js $(WEB_DIR)/css/style.css $(WEB_DIR)/sound/type_sound.mp3 $(WEB_DIR)/VERSION
+	@echo "$(COLOR_BOLD)Gzip sizes$(COLOR_RESET)"
+	@gzip -c $(WEB_DIR)/index.html | wc -c | awk '{printf "  index.html: %s bytes\n", $$1}'
+	@gzip -c $(WEB_DIR)/js/game.js | wc -c | awk '{printf "  js/game.js: %s bytes\n", $$1}'
+	@gzip -c $(WEB_DIR)/css/style.css | wc -c | awk '{printf "  css/style.css: %s bytes\n", $$1}'
+	@gzip -c $(WEB_DIR)/sound/type_sound.mp3 | wc -c | awk '{printf "  sound/type_sound.mp3: %s bytes\n", $$1}'
+	@echo "$(COLOR_GREEN)Browser build ready in $(WEB_DIR)/ - open index.html or serve the folder.$(COLOR_RESET)"
+
 .PHONY: build-docker
 build-docker: ## Build Docker image
 	@echo "$(COLOR_CYAN)Building Docker image...$(COLOR_RESET)"
@@ -220,6 +245,7 @@ clean: ## Clean build files
 	@echo "$(COLOR_CYAN)Cleaning build files...$(COLOR_RESET)"
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DIST_DIR)
+	rm -rf $(WEB_DIR)
 	rm -f coverage.out coverage.html
 	rm -f $(BINARY_NAME) $(BINARY_NAME).exe
 	$(GOCLEAN)
@@ -370,7 +396,7 @@ help: ## Show this help message
 # Phony targets (always run)
 # ============================================
 
-.PHONY: help build build-all build-windows build-linux build-darwin build-darwin-arm64 \
+.PHONY: help build web build-all build-windows build-linux build-darwin build-darwin-arm64 \
         build-docker run dev test test-coverage vet fmt tidy deps clean clean-all \
         package package-windows package-linux package-darwin package-darwin-arm64 \
         install docker-build docker-run docker-stop info size author
