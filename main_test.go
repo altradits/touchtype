@@ -122,6 +122,36 @@ func TestMissRespawnsTheSamePromptAndAppliesPenalty(t *testing.T) {
 	}
 }
 
+func TestStaticAssetsServeForWebBuild(t *testing.T) {
+	cases := map[string]string{
+		"/":                     "text/html; charset=utf-8",
+		"/css/style.css":        "text/css; charset=utf-8",
+		"/js/game.js":           "text/javascript; charset=utf-8",
+		"/sound/type_sound.mp3": "audio/mpeg",
+	}
+	for path, contentType := range cases {
+		recorder := httptest.NewRecorder()
+		serveFrontend(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d, want %d", path, recorder.Code, http.StatusOK)
+		}
+		if got := recorder.Header().Get("Content-Type"); got != contentType {
+			t.Fatalf("GET %s Content-Type = %q, want %q", path, got, contentType)
+		}
+		if recorder.Body.Len() == 0 {
+			t.Fatalf("GET %s returned an empty body", path)
+		}
+	}
+
+	for _, path := range []string{"/does-not-exist", "/index.html", "/main.go"} {
+		recorder := httptest.NewRecorder()
+		serveFrontend(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("GET %s status = %d, want %d", path, recorder.Code, http.StatusNotFound)
+		}
+	}
+}
+
 func mustJSON(t *testing.T, value string) string {
 	t.Helper()
 	encoded, err := json.Marshal(value)
